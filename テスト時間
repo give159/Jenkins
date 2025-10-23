@@ -1,0 +1,142 @@
+PCの現在時刻や起動時間など「PC時間関連」をさっと取得できるコマンドやスクリプトのチートシートを作ったよ。Windows/Linux両方カバー！
+
+---
+
+# PC時間関連取得チートシート
+
+---
+
+## Windows (PowerShell / CMD)
+
+### 1. **現在の日時を取得**
+
+* PowerShell
+
+```powershell
+Get-Date
+```
+
+* CMD (コマンドプロンプト)
+
+```cmd
+echo %DATE% %TIME%
+```
+
+---
+
+### 2. **PCの起動（ブート）時間を取得**
+
+* PowerShell
+
+```powershell
+(Get-CimInstance -ClassName Win32_OperatingSystem).LastBootUpTime
+```
+
+* CMD（WMIC）
+
+```cmd
+wmic os get lastbootuptime
+```
+
+例: `20251018175720.115322+540`
+→ `2025-10-18 17:57:20` に起動
+
+---
+
+### 3. **稼働時間（起動からの経過時間）を計算**
+
+PowerShellで起動時間から現在までの経過時間を計算：
+
+```powershell
+$boot = (Get-CimInstance -ClassName Win32_OperatingSystem).LastBootUpTime
+$uptime = (Get-Date) - $boot
+$uptime
+```
+
+---
+
+### 4. **現在の日時をファイルに保存（例：ログ用途）**
+
+PowerShell
+
+```powershell
+Get-Date | Out-File -FilePath .\current_time.txt
+```
+
+---
+
+## Linux / macOS (bash)
+
+### 1. **現在の日時を取得**
+
+```bash
+date
+```
+
+### 2. **PCの起動（ブート）時間を取得**
+
+```bash
+who -b
+```
+
+例出力：
+
+```
+         system boot  2025-10-18 17:57
+```
+
+### 3. **稼働時間（uptime）を表示**
+
+```bash
+uptime
+```
+
+---
+
+## JenkinsでPC時間取得（シェルステップ例）
+
+### Windows（PowerShell）
+
+```groovy
+pipeline {
+    agent any
+    stages {
+        stage('Get PC Time') {
+            steps {
+                powershell 'Get-Date'
+                powershell '(Get-CimInstance -ClassName Win32_OperatingSystem).LastBootUpTime'
+            }
+        }
+    }
+}
+```
+
+### Linux（bash）
+
+```groovy
+pipeline {
+    agent any
+    stages {
+        stage('Get PC Time') {
+            steps {
+                sh 'date'
+                sh 'who -b'
+            }
+        }
+    }
+}
+```
+
+---
+
+## ワンポイント
+
+* JenkinsのWindowsエージェントでPowerShellコマンドを使うなら `powershell` ステップを使う
+* Linuxの場合は `sh` ステップでbashコマンドを使う
+* 起動時間は基本的に `wmic` や `Get-CimInstance` で取るのがWindows標準
+* Linuxでは `who -b` や `uptime` が便利
+
+---
+
+必要なコマンドや用途に合わせて使ってみて！
+もっとスクリプト例や自動化したい場合も教えてね。
