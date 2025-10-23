@@ -1,0 +1,220 @@
+完璧です！✨
+では、これまでの記事にあなたの「ステップ」の解説を統合し、Qiita風に自然に読める形へ加筆した**完全統合版**をお見せします。
+これで、CI/CD、Jenkinsの主要用語、ステージ・ステップの関係まで、すべて一貫して理解できる記事になります👇
+
+---
+
+# 🐳 Jenkins Declarative PipelineでDockerイメージをAWS ECRにPushする方法
+
+*〜CI/CD実践入門＋Jenkins用語とステップ解説〜*
+
+---
+
+## 📘 はじめに
+
+本記事では、**Jenkins Declarative Pipeline**を使って、Dockerイメージを**AWS ECR (Elastic Container Registry)** にビルド＆プッシュする方法を解説します。
+
+さらに、CI/CDの基本的な違いから、Jenkinsでよく使われる用語（ジョブ・ステージ・ステップなど）を整理し、パイプライン設計の全体像をつかみます。
+
+---
+
+## 🧩 前提条件
+
+* OS: Windows または Linux（本記事ではWindows例）
+* Jenkins がインストール済み
+* Docker がインストール・起動済み
+* AWS CLI が設定済み（`aws configure` 済み）
+* ECR リポジトリ作成済み（例: `myapp-repo`）
+
+---
+
+## ⚙️ Jenkins初期設定（Windows）
+
+1. **Jenkinsをインストール**
+   [公式サイト](https://www.jenkins.io/)からWindowsインストーラをダウンロード・実行。
+
+2. **初回アクセス**
+   ブラウザで `http://localhost:8080` にアクセス。
+
+3. **初期パスワード入力**
+
+   ```
+   C:\Program Files\Jenkins\secrets\initialAdminPassword
+   ```
+
+   にあるパスワードを入力。
+
+4. **プラグイン選択 → 管理者作成**
+   推奨プラグインをインストールし、管理者ユーザーを作成。
+
+---
+
+## 🧱 ジョブとパイプラインの作成
+
+1. Jenkinsダッシュボード → 「新しいアイテム」
+2. 名前を入力（例: `build-and-push-docker`）
+3. 「パイプライン」を選択 → 「OK」
+
+---
+
+## 🐙 GitHubとの連携
+
+1. ソースコード管理 → 「Git」選択
+2. リポジトリURLを入力
+
+   ```
+   https://github.com/your-username/your-repo.git
+   ```
+3. GitHubトークンまたはSSHキーを登録。
+
+---
+
+## 🧾 Jenkinsfile（Declarative Pipeline）
+
+```groovy
+pipeline {
+    agent any
+
+    environment {
+        AWS_ACCOUNT_ID = '123456789012'
+        AWS_REGION = 'ap-northeast-1'
+        ECR_REPO = 'myapp-repo'
+        IMAGE_TAG = "${env.BUILD_ID}"
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                git 'https://github.com/your-username/your-repo.git'
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                sh '''
+                docker build -t ${ECR_REPO}:${IMAGE_TAG} .
+                '''
+            }
+        }
+
+        stage('Login to ECR') {
+            steps {
+                sh '''
+                aws ecr get-login-password --region ${AWS_REGION} | \
+                docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
+                '''
+            }
+        }
+
+        stage('Tag and Push') {
+            steps {
+                sh '''
+                docker tag ${ECR_REPO}:${IMAGE_TAG} ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO}:${IMAGE_TAG}
+                docker push ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO}:${IMAGE_TAG}
+                '''
+            }
+        }
+    }
+}
+```
+
+---
+
+## 🚀 実行と結果確認
+
+1. ダッシュボード → 「今すぐビルド」クリック
+2. 各ステージの進行を確認（青いパイプラインで視覚化）
+3. AWS ECR上に新しいイメージが登録されていることを確認。
+
+---
+
+## 🔍 CI/CDの違い
+
+| 区分     | 名称                                   | 目的                    | 特徴            |
+| ------ | ------------------------------------ | --------------------- | ------------- |
+| **CI** | 継続的インテグレーション（Continuous Integration） | コードを頻繁に統合・自動テストで品質を担保 | ビルド・ユニットテスト中心 |
+| **CD** | 継続的デリバリー（Continuous Delivery）        | いつでもデプロイ可能な状態を維持      | 本番反映は手動       |
+| **CD** | 継続的デプロイ（Continuous Deployment）       | テスト通過後に自動デプロイ         | 完全自動化されたリリース  |
+
+👉 CIは「品質の維持」、CDは「迅速なリリース」。
+両者の組み合わせがDevOpsの中核です。
+
+---
+
+## 🧠 Jenkins用語一覧
+
+| 用語                      | 意味                      | 補足                            |
+| ----------------------- | ----------------------- | ----------------------------- |
+| **ジョブ (Job)**           | Jenkinsが実行する自動タスクの単位    | ビルド・テスト・デプロイなどを定義             |
+| **パイプライン (Pipeline)**   | 一連のジョブ・ステージの流れをコード化     | CI/CD全体を自動化                   |
+| **ステージ (Stage)**        | パイプライン内のフェーズ（段階）        | 例: Build / Test / Deploy      |
+| **ステップ (Step)**         | ステージ内で実際に実行されるコマンドや処理   | Jenkinsfile内で`steps`ブロックとして定義 |
+| **ノード (Node)**          | Jenkinsがジョブを実行するマシン環境   | master/agent として構成            |
+| **エージェント (Agent)**      | 実際に処理を実行するサーバー          | Dockerコンテナや別ホストも可             |
+| **アーティファクト (Artifact)** | ビルドの成果物                 | jar, war, Docker imageなど      |
+| **トリガー (Trigger)**      | ビルドを開始するきっかけ            | Git pushやスケジュールなど             |
+| **Webhook**             | 外部サービス（GitHubなど）からの通知機構 | Push時に自動ジョブ起動が可能              |
+
+---
+
+## ⚙️ ステップ（Step）の詳細解説
+
+Jenkinsにおける「ステップ」とは、**実際に何を実行するか**を定義する最小の単位です。
+ステージが「フェーズ（例: ビルド工程）」を表すのに対し、ステップは「その中で実行する具体的な命令」です。
+
+### 🔹 ステップの理解ポイント
+
+* **定義の位置**
+  ステップは各`stage`ブロックの中にある`steps { ... }`で定義します。
+  Jenkinsに「この段階で何をすべきか」を明示します。
+
+* **シェルコマンド実行の中心**
+  多くのステップは`sh`（Linux）または`bat`（Windows）コマンドを使って実行します。
+  例: `docker build`, `npm test`, `mvn package` など。
+
+* **サブセットの関係**
+  ステージ（大きな流れ）の中に複数のステップ（細かい実行単位）がある構造。
+  ステージが“章”、ステップが“文”のような関係です。
+
+---
+
+### 🧩 例：ビルドステージのステップ定義
+
+```groovy
+stage('Build') {
+    steps {
+        sh 'docker build -t myapp .'
+        sh 'echo "Build completed successfully!"'
+    }
+}
+```
+
+上記では、1つ目のステップでDockerイメージをビルドし、
+2つ目のステップで完了メッセージを出力しています。
+
+つまり、**「ステップ」＝ Jenkinsが順番に実行する命令列**です。
+
+---
+
+## 💡 まとめ
+
+* **CI/CD**：コード統合からデプロイまでの自動化プロセス
+* **ステージ**：フェーズ（ビルド／テスト／デプロイ）
+* **ステップ**：各フェーズ内で実際に実行される命令
+* **Jenkinsfile**：パイプラインの設計図
+
+これらを理解すると、Jenkinsパイプラインが「なぜ・どう動くか」が明確になります。
+Docker・AWS・GitHubを組み合わせることで、完全なCI/CDの自動化が実現できます 🚀
+
+---
+
+✅ **次のステップ**
+
+* AWS ECS/EKSへの自動デプロイPipelineを構築
+* Jenkins AgentをDockerで動かす環境構築
+* GitHub Actionsとの比較で最適なCI/CDを選定
+
+---
+
+この統合版では「ステップ」の意味や構造がステージとの対比で明確になります。
+次に「Declarative」と「Scripted Pipeline」の違いもQiita風に追記して、さらに理解を深めましょうか？
